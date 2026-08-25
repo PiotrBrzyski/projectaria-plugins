@@ -169,7 +169,7 @@ PAT provides time domain mapping to temporally align data across multiple Aria G
 2. For clients: query data with the host's timestamp using `TimeDomain.SUBGHZ` — PAT handles the clock mapping automatically
 3. Check time domain mapping availability on a provider — only present in client/receiver VRS files
 
-Tutorial_6 demonstrates the complete multi-device time domain mapping workflow with Rerun visualization.
+Tutorial_4 demonstrates the complete multi-device time domain mapping workflow with Rerun visualization.
 
 ### Comparison with Gen1
 
@@ -188,12 +188,14 @@ Path: `examples/Gen2/python_notebooks/`
 | Tutorial_1 | VrsDataProvider basics — read multimodal sensor data |
 | Tutorial_2 | Device calibration |
 | Tutorial_3 | Sequential multi-sensor access (queued data streaming) |
-| Tutorial_4 | Eye tracking + hand tracking (on-device) |
-| Tutorial_5 | On-device VIO |
-| Tutorial_6 | Timestamp alignment (multi-device SubGHz) |
-| Tutorial_7 | MPS DataProvider basics |
+| Tutorial_4 | Timestamp alignment (multi-device SubGHz) |
+| Tutorial_5 | MPS basics — output layout, MpsDataPathsProvider, MpsDataProvider |
+| Tutorial_6 | VIO and trajectory — on-device VIO + MPS SLAM, point cloud |
+| Tutorial_7 | Hand tracking — on-device stream + MPS result |
+| Tutorial_8 | Eye tracking — on-device geometric, on-device ML, MPS |
+| Tutorial_9 | Neural Band sEMG |
 
-Tutorial_4 covers on-device eye gaze (lower accuracy, immediate). Cloud MPS provides higher accuracy but requires upload + processing.
+Tutorials 6-8 each cover one algorithm across every source that produces it, so the on-device and MPS variants are compared side by side rather than split across tutorials.
 
 ## Visualization & Data Export
 

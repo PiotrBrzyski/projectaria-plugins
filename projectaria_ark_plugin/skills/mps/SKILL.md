@@ -74,7 +74,7 @@ See the data formats docs for exact CSV column definitions, coordinate conventio
 
 ## On-Device vs Cloud Processing
 
-On-device eye gaze and VIO are embedded in the VRS during recording (accessible via PAT Tutorial_4 and Tutorial_5). Cloud MPS produces substantially better results using offline algorithms — higher accuracy for both SLAM and hand tracking. See the benchmarks page for quantitative comparisons.
+On-device eye gaze and VIO are embedded in the VRS during recording (accessible via PAT Tutorial_7 for hand tracking and Tutorial_6 for VIO; eye gaze is Tutorial_8). Cloud MPS produces substantially better results using offline algorithms — higher accuracy for both SLAM and hand tracking. See the benchmarks page for quantitative comparisons.
 
 ## ⛔ MANDATORY: Troubleshooting
 

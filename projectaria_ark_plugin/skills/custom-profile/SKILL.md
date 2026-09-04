@@ -1,6 +1,6 @@
 ---
 name: custom-profile
-description: Use when authoring a custom profile JSON for Aria Gen 2. A profile fixes which sensors are enabled and at what rate, resolution, and encoding — **the same profile works for both recording and streaming**, despite the historical "recording profile" name. Custom profiles carry real risks (thermal shutdown, fragmented data, MPS rejection), so this skill encodes the conservative authoring workflow plus the full released profile schema (top-level keys, per-sensor fields, enums, validation rules, rate-handling behaviors). Use whenever the user asks how to write a custom profile, modify a profile, define sensor rates, deploy a profile to the device, or asks what a specific profile field means.
+description: Use when authoring a custom profile JSON for Aria Gen 2. A profile fixes which sensors are enabled and at what rate, resolution, and encoding — **the same profile works for both recording and streaming**, despite the historical "recording profile" name. Custom profiles carry real risks (thermal shutdown, fragmented data, MPS rejection), so this skill encodes the conservative authoring workflow plus the full released profile schema (top-level keys, per-sensor fields, enums, validation rules, rate-handling behaviors). Use whenever the user asks how to write a custom profile, modify a profile, pull an existing profile off the device, define sensor rates, deploy a profile to the device, or asks what a specific profile field means.
 ---
 
 # Custom Profile Authoring
@@ -35,17 +35,27 @@ Stop and use a pre-defined profile if any of these apply:
 
 ## Pre-defined profiles (use as base)
 
-| Profile | Best for | Notable | Bundled JSON |
-|---|---|---|---|
-| `profile8` | General-purpose recording | RGB 10 Hz @ 2560×1920, SLAM 30 Hz, all environmental sensors on | `references/profile8.json` |
-| `profile9` | General-purpose streaming | RGB 5 Hz CBR (8 Mbps + blur filter), no GPS / BLE / WiFi / ET cameras | `references/profile9.json` |
-| `profile10` | High-frame-rate RGB | RGB 30 Hz @ 2016×1512, otherwise like `profile8` | `references/profile10.json` |
-| `mp_streaming_demo` | Machine-perception streaming demo | Streaming-only, lighter encoding for thermal, no ALS / baro / mag / GPS / BLE / WiFi | `references/mp_streaming_demo.json` |
+| Profile | Best for | Notable |
+|---|---|---|
+| `profile8` | General-purpose recording | RGB 10 Hz @ 2560×1920, SLAM 30 Hz, all environmental sensors on |
+| `profile9` | General-purpose streaming | RGB 5 Hz CBR (8 Mbps + blur filter), no GPS / BLE / WiFi / ET cameras |
+| `profile10` | High-frame-rate RGB | RGB 30 Hz @ 2016×1512, otherwise like `profile8` |
+| `mp_streaming_demo` | Machine-perception streaming demo | Streaming-only, lighter encoding for thermal, no ALS / baro / mag / GPS / BLE / WiFi |
 
-**Each profile's full JSON is bundled in `references/` inside this skill** — read the one closest to your use case, copy it, rename, and edit. These four are validated for thermal, battery, and data quality, and the per-field settings encode tested combinations — they are the only safe starting points.
-
-The pre-defined profile set may grow over releases — also check the docs:
+Validated for thermal, battery, and data quality — the only safe starting points. Catalog:
 https://facebookresearch.github.io/projectaria_tools/gen2/technical-specs/device/profile
+
+---
+
+## Get your base profile
+
+Three on-device sources: **native** (firmware), **cloud** (server-pushed), **user** (yours — the only writable one).
+
+Client SDK does list / pull / add / remove. **See the `client-sdk` skill for the commands; don't guess them.**
+
+- **Pull, don't transcribe.** A pull returns what your device's firmware actually runs; any copied base drifts.
+- **Add is non-destructive, one profile at a time, and won't overwrite** — to iterate, remove then add.
+- **Unknown fields are rejected on upload**, not ignored.
 
 ---
 
@@ -105,7 +115,7 @@ Write them as `"button_state": {}`.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `name` | string | **Required.** Selection key. Must be unique across **all 3 on-device profile sources** (native + cloud + user) on the target device. List existing profile names via the Client SDK — run `aria_gen2 device profile --help` for the exact subcommand. |
+| `name` | string | **Required.** Selection key. Must be unique across **all 3 on-device profile sources** (native + cloud + user) on the target device — list the existing names first via the Client SDK (see the `client-sdk` skill). |
 | `description` | string | Free text shown in tooling. |
 | `type` | `ProfileType` enum: `1`=RECORDING, `2`=STREAMING | **Metadata only** — does NOT affect runtime. Recording-vs-streaming behavior is driven by which name is chosen as the recording-default vs streaming-default at session time, not by this field. By convention `*_recording` profiles set `1`, streaming set `2`. |
 | `recommended` | bool | UI hint surfaced by the phone app / Wearables Dev Center. Does not change behavior. |
@@ -288,8 +298,16 @@ All cameras share a single **180 Hz master trigger**. A camera group's actual ra
 |---|---|---|---|
 | `vio` | `{rate_hz, extract_image_keypoints, output_tracks}` | Visual-inertial odometry | `slam_cameras`@rate (RAW8) + `imus`@800 |
 | `vio_high_frequency_pose` | `{rate_hz}` | High-rate pose output | `vio` (→ SLAM+IMU); sets imus@its rate |
-| `et` | `{rate_hz}` | Eye gaze | `et_cameras`@rate (RAW8) + IR LED on |
+| `et` | `{rate_hz, type}` | Eye gaze | `et_cameras`@rate (RAW8) + IR LED on |
 | `ht` | `{rate_hz}` | Hand tracking | `slam_cameras`@rate (RAW8) |
+
+#### `et.type` — gaze algorithm
+
+`"type": "ET_ML_TURING"` (`2`) selects ML ET. Omitted / `ET_TYPE_UNDEFINED` (`0`) / `ET_GEOMETRICAL` (`3`) all mean geometric ET, the default.
+
+> ⛔ **ML ET and `ht` cannot both be enabled.** The device errors out and the recording or stream never starts. Geometric ET has no such restriction; the pre-defined profiles run it alongside `ht`.
+
+The eye-gaze stream carries a different flavor per algorithm, so readers must dispatch on it.
 
 #### Notes
 
@@ -321,6 +339,7 @@ All cameras share a single **180 Hz master trigger**. A camera group's actual ra
 | Loading | Invalid enums (audio formats, resolutions, encoding, YUV on a non-RGB camera) → profile rejected; the session won't start. |
 | Validation | Off-list rates (IMU / Mag / GPS); camera > 90 Hz; RGB full-res > 24 fps; POV qp not (0 or ≥ 20); gain out of range; SLAM auto-exposure > 45 Hz; SLAM exposure too long; CNR strength > 10; blur without VIO → profile rejected. |
 | Soft fixes (warn, not reject) | temperature < 1 Hz → clamped to 1; invalid blur threshold/window → defaults; `fixed_exposure` ≤ 0 → defaults; `iframe_period` ≤ 0 → 1. |
+| Session start | ML ET (`et.type = ET_ML_TURING`) together with `ht` → device errors; recording/streaming does not start. |
 
 **Bad enums fail hardest.** Prefer to start from a working built-in profile and change values one at a time.
 
@@ -328,10 +347,10 @@ All cameras share a single **180 Hz master trigger**. A camera group's actual ra
 
 ## Authoring checklist
 
-1. **Start from a pre-defined profile** (`profile8` / `profile9` / `profile10` / `mp_streaming_demo`). Copy and rename — don't start blank.
+1. **Pull a pre-defined base off the device** via the Client SDK and edit that. Don't start blank; don't transcribe from docs.
 2. **Give it a unique `name`** across all sources.
 3. **Express intent, not plumbing** — enable verticals (`vio`, `et`, `ht`); let the device add raw cameras / IMUs.
-4. **Respect the hard limits**: rates (per-sensor tables above), resolutions, POV QP (0 or ≥ 20), camera gain, SLAM auto-exposure ≤ 45 Hz, RGB full-res ≤ 24 fps.
+4. **Respect the hard limits**: rates (per-sensor tables above), resolutions, POV QP (0 or ≥ 20), camera gain, SLAM auto-exposure ≤ 45 Hz, RGB full-res ≤ 24 fps, and **no `ht` alongside ML ET**.
 5. **Spell every field exactly** — the SDK upload path rejects unknowns.
 6. **Test with a short recording first** — verify all expected streams are present, monitor device temperature + battery, validate the recording loads in PAT.
 7. **If passing to MPS, run `vrs-health-check` first** (see the `vrs-health-check` skill).
@@ -340,8 +359,6 @@ All cameras share a single **180 Hz master trigger**. A camera group's actual ra
 ---
 
 ## Deploying a custom profile
-
-Profiles live in one of three on-device sources: **native** (read-only, baked into the image), **cloud** (server-pushed), and **user** (your custom profiles).
 
 ### Path 1: Companion App (per-device, GUI)
 
@@ -356,7 +373,7 @@ Reference: https://facebookresearch.github.io/projectaria_tools/gen2/ark/compani
 
 ### Path 2: Client SDK (programmatic)
 
-Upload to the **`user`** profile source via the Client SDK before starting a recording or stream. See the **`client-sdk`** skill for how to drive recording/streaming, and run the relevant CLI's `--help` for current flag names.
+Add it via the Client SDK (see the **`client-sdk`** skill), then select it by `name` when recording or streaming.
 
 ---
 
@@ -365,26 +382,6 @@ Upload to the **`user`** profile source via the Client SDK before starting a rec
 - **Run `vrs-health-check` first** (see the `vrs-health-check` skill). If it fails, the profile likely has issues.
 - **Load in PAT** (see the `projectaria-tools` skill) to verify the streams are accessible.
 - **Compare actual data rates** to your configured rates — significant deviation suggests thermal throttling or sensor failure.
-
----
-
-## Worked examples — the 4 pre-defined profiles
-
-Don't author from scratch. The 4 pre-defined profiles bundled in this skill are the validated starting points:
-
-| Base | Bundled JSON | When to copy this one |
-|---|---|---|
-| `profile8` | `references/profile8.json` | You want general-purpose **recording** with full sensor coverage. |
-| `profile9` | `references/profile9.json` | You want general-purpose **streaming** with thermally-safe RGB CBR encoding. |
-| `profile10` | `references/profile10.json` | You want recording with **30 fps RGB at 2 MP**. |
-| `mp_streaming_demo` | `references/mp_streaming_demo.json` | You want a lightweight **streaming-only** machine-perception demo profile. |
-
-Workflow:
-
-1. Read the bundled JSON file matching your closest use case.
-2. Copy it to a new file and rename — give it a unique `name` field.
-3. Change one parameter at a time. Don't strip fields you don't understand; if a sensor isn't relevant, leave the block alone or omit the whole top-level key.
-4. Deploy via Companion App or Client SDK (see below).
 
 ---
 

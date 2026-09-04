@@ -54,7 +54,9 @@ In the **Python SDK**, streaming uses a callback pattern: create a `StreamDataIn
 
 ### Device Management
 
-Query device status (battery, temperature, WiFi, recording state), connect to WiFi networks, start the on-device hotspot, send text-to-speech, list available recording/streaming profiles, and retrieve device calibration.
+Query device status (battery, temperature, WiFi, recording state), connect to WiFi networks, start the on-device hotspot, send text-to-speech, manage recording/streaming profiles, and retrieve device calibration.
+
+**Profiles**: `aria_gen2 device profile --help` — list, pull, add, remove. Pull to get a base worth customizing; add won't overwrite an existing name; only profiles you added are removable. To author the JSON, use the **`custom-profile`** skill.
 
 ### Multi-Device Time Domain Mapping
 

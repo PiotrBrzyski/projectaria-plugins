@@ -4,9 +4,14 @@
   "description": "Project Aria smart glasses development resources for AI coding agents",
   "private": true,
   "license": "Apache-2.0",
+  "author": "Meta Platforms, Inc.",
+  "homepage": "https://github.com/facebookresearch/projectaria-plugins",
   "repository": {
     "type": "git",
     "url": "https://github.com/facebookresearch/projectaria-plugins.git"
+  },
+  "bugs": {
+    "url": "https://github.com/facebookresearch/projectaria-plugins/issues"
   },
   "keywords": [
     "aria",
